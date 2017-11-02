@@ -1,0 +1,8 @@
+1) Generate data
+2) crop flies to a 200x200 box
+3) track the centroid of the fly before cropping to back track and place the fly back on the orginal image
+4) Segment the fly using trainable WEKA segmentator
+5) get the leg tips coordinates
+6) Label the legs starting L3, going clockwise and take care how many legs are being tracked
+7) use head, tail, body centroids to differentiate the specific leg
+8) after labeling the leg tips, generate specific plots for the gait pattern

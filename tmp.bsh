@@ -1,0 +1,58 @@
+import ij.io.DirectoryChooser;
+import ij.IJ;
+//import ij.gui.GenericDialog;
+import trainableSegmentation.*;
+import ij.plugin.FolderOpener;
+import ij.ImagePlus;
+import ij.ImageStack;
+import java.util.ArrayList;
+import java.util.zip.ZipFile;
+import ij.io.FileSaver;
+
+
+baseDir = "/home/vijay/amanaggarwal/flyWalk/WEKA/";
+inputDir = baseDir+"/CS_1_20170512_225508_tracked_0/";
+outputDir = baseDir+"tmp/sc/";
+classifier = baseDir+"20170615_6Classes.model";
+
+List dirs = new ArrayList();
+
+for (int i = 1; i <= 2; i++) {
+	//dirs.add("/home/aman/temp_5578/"); // <= why do you do this 10 times? and why is it different from inputDir?
+	dirs.add( inputDir );
+}
+
+IJ.log (dirs.get(0));
+//path = "/home/aman/Desktop/20161204_120756_tracked/tmp/123.tiff";
+path = baseDir+"tmp.tiff";
+print(path);
+for (dir = 1; dir <= 1; dir++) {
+	IJ.log("Processing "+dirs.get(0));
+	FolderOpener opener = new FolderOpener();
+	ImagePlus imp = opener.openFolder(dirs.get(0));
+	ImageStack stack = imp.getImageStack();
+	//imp.show();
+	int nSlices = imp.getImageStackSize();
+	List titles = new ArrayList();
+	for (int slice = 1; slice <= nSlices; slice++) {
+		imp.setSlice(slice);
+		titles.add(imp.getTitle());
+	}
+	IJ.log(titles.get(0));
+	segmentator = new WekaSegmentation(imp);
+	segmentator.loadClassifier(classifier);
+	segmentator.applyClassifier(false);
+	im = segmentator.getClassifiedImage();
+	IJ.log(""+im.getImageStackSize());
+	IJ.log(""+imp.getImageStackSize());
+	IJ.log(im.getTitle());
+	IJ.log(imp.getTitle());
+	IJ.log("Done");
+	new FileSaver(im).saveAsTiffStack(path);
+}
+
+
+/*
+IJ.run(imp, "Image Sequence... ", "format=JPEG use save=/home/aman/Desktop/20161204_120756_tracked/tmp/temp_55780000.jpeg");
+IJ.run(imp, "Image Sequence... ", "format=JPEG save=/home/aman/Desktop/20161204_120756_tracked/tmpp/temp_55780000.jpeg");
+*/
