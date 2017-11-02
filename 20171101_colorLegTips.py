@@ -139,15 +139,15 @@ def getIm(im, lAngles):
     '''
     global img
     img = np.ones(image.shape, dtype='uint8')*222#create an empty iamge with gray background 
-    cv2.circle(img,(int(lAngles[18,im]),int(lAngles[19,im])), 5, (0,0,255), thickness=4)#draw a circle on the detected head blobs
-    cv2.circle(img,(int(lAngles[21,im]),int(lAngles[22,im])), 2, (100,255,0), thickness=2)#draw a circle on the detected tail blobs
-    cv2.circle(img,(int(lAngles[24,im]),int(lAngles[25,im])), 2, (100,255,0), thickness=2)#draw a circle on the detected body  blobs
-    cv2.line(img, (int(lAngles[18,im]),int(lAngles[19,im])),(int(lAngles[21,im]),int(lAngles[22,im])),\
+    cv2.circle(img,(int(lAngles[im, 18]),int(lAngles[im, 19])), 5, (0,0,255), thickness=4)#draw a circle on the detected head blobs
+    cv2.circle(img,(int(lAngles[im, 21]),int(lAngles[im, 22])), 2, (100,255,0), thickness=2)#draw a circle on the detected tail blobs
+    cv2.circle(img,(int(lAngles[im, 24]),int(lAngles[im, 25])), 2, (100,255,0), thickness=2)#draw a circle on the detected body  blobs
+    cv2.line(img, (int(lAngles[im, 18]),int(lAngles[im, 19])),(int(lAngles[im, 21]),int(lAngles[im, 22])),\
                                                                                 (0,0,200), thickness=3)# draw a line from head to tail
     for i in xrange(nLegs):
-        cv2.circle(img,(int(lAngles[i*3,im]),int(lAngles[(i*3)+1, im])), 3, tuple(patches[i]), thickness=2)#draw a circle on the detected leg tip blobs        
-        cv2.line(img, (int(lAngles[24,im]),int(lAngles[25,im])),(int(lAngles[i*3,im]),int(lAngles[(i*3)+1, im])), tuple(patches[i]))
-        cv2.putText(img,legLabels[i], (int(lAngles[i*3,im]),int(lAngles[(i*3)+1, im])), cv2.FONT_HERSHEY_COMPLEX, 0.5, tuple(patches[i]))
+        cv2.circle(img,(int(lAngles[im, i*3]),int(lAngles[im, (i*3)+1])), 3, tuple(patches[i]), thickness=2)#draw a circle on the detected leg tip blobs        
+        cv2.line(img, (int(lAngles[im, 24]),int(lAngles[im, 25])),(int(lAngles[im, i*3]),int(lAngles[im, (i*3)+1])), tuple(patches[i]))
+        cv2.putText(img,legLabels[i], (int(lAngles[im, i*3]),int(lAngles[im, (i*3)+1])), cv2.FONT_HERSHEY_COMPLEX, 0.5, tuple(patches[i]))
     return img
 
 
@@ -159,8 +159,8 @@ def getRaw(im):
     global img, ix, iy
     img = cv2.imread(rawDir+rawList[im])
     for i in xrange(nLegs):
-        cv2.circle(img,(int(legAngles[i*3,im]),int(legAngles[(i*3)+1, im])), 3, tuple(patches[i]), thickness=2)#draw a circle on the detected leg tip blobs        
-        cv2.putText(img,legLabels[i], (int(legAngles[i*3,im]),int(legAngles[(i*3)+1, im])), cv2.FONT_HERSHEY_COMPLEX, 0.5, tuple(patches[i]))
+        cv2.circle(img,(int(legAngles[im, i*3]),int(legAngles[im, (i*3)+1])), 3, tuple(patches[i]), thickness=2)#draw a circle on the detected leg tip blobs        
+        cv2.putText(img,legLabels[i], (int(legAngles[im, i*3]),int(legAngles[im, (i*3)+1])), cv2.FONT_HERSHEY_COMPLEX, 0.5, tuple(patches[i]))
     ix = 0
     iy = 0
 
@@ -176,8 +176,8 @@ def update(x,y):
     global nUpdate
     if ix != 0 and iy !=0:
         im = cv2.getTrackbarPos("trackbar1", 'main1')
-        legAngles[leg*3,im] = ix
-        legAngles[(leg*3)+1,im] = iy
+        legAngles[im, leg*3] = ix
+        legAngles[im, (leg*3)+1] = iy
         getRaw(im)
         nUpdate+=1
         print 'updated '+str(nUpdate)+ ' times'
@@ -194,19 +194,64 @@ def draw_circle(event,x,y,flags,param):
         cv2.circle(img,(ix,iy),2,(255,0,0),1)
         print ix, iy
 
-def errorcorrect(legAngles, tolerance, maxstep):
+def getLegtipAngle(legTipCoords, tailCoords, origin):
+    '''
+    input: 
+        legTipCoords:   legtip centroid coordinates (x,y)
+        tailCoords:     tail centroid coordinates   (x,y)
+        origin:         coordinates of the origin, i.e. center of the image (x,y)
+    output:
+        legTipAngle:    a numpy array containing legtip coordinates and angle (x,y,theta)
+    '''
+    legTipAngle = degrees(atan2(legTipCoords[1]-origin, legTipCoords[0]-origin))# insert leg angle w.r.t the origin
+    tailAngle = degrees(atan2(tailCoords[1]-origin, tailCoords[0]-origin))# insert leg angle w.r.t the origin
+    return np.array([legTipCoords[0], legTipCoords[1], legTipAngle], dtype='float32')
+
+def neighbourUpdate(inArray):
+    '''
+    input: 
+        the array from which the erroraneous values are corrected and updated
+        the index of the row which needs to be updated would be: (len(inArray)-1/2)+1
+    output:
+        the array with the updated values calculated from the neighbouring cells
+        
+    method: the erroraneous value is calculated using the average of neighbouring cells
+            more sophisticated methods such as heuristics/machine learning could also applied
+    '''
+    errorIndex = (len(inArray)-1)/2
+    tempCoords = np.delete(inArray, (errorIndex), axis=0)
+
+    return np.average(tempCoords, axis = 0)
+
+
+def errorcorrect(lAngles, tolerance, maxDis, nLegs, updateWin):
     '''
     input:  
-        legAngles:  numpy array containing all leg coordinates, their angles and
+        lAngles:  numpy array containing all leg coordinates, their angles and
                     other body segment coordinates and angle
         tolerance:  the pixel diameter which is okay for jitter in legtip coordinates
-        maxstep:    maximum distance moved by a legtip in two consecutive frames
+        maxDis:    maximum distance moved by a legtip in two consecutive frames
+        nLegs:      total number of legtip data present in the lAngles file
+        updateWin:  the window of neighbouring cells from which the erroraneous value would be corrected 
     output:
         correctedLegAngles: numpy array containing corrected values for leg tips
         errorList:          list of frames where the values were corrected
         
     '''
-    
+    for i in xrange(updateWin, len(lAngles)-updateWin):
+        for l in xrange(nLegs):
+            x = lAngles[i, l*3]
+            y = lAngles[i, (l*3)+1]
+            if (i>updateWin or i<(len(lAngles)-updateWin)):
+                preX = lAngles[i-1, l*3]
+                preY = lAngles[i-1, (l*3)+1]
+                dis = np.sqrt(np.square(x-preX)+np.square(y-preY))
+                if dis>maxDis:    
+                    print i, l, dis, '========================================='
+                    lAngles[i,:] = neighbourUpdate(lAngles[i-updateWin:(i+updateWin)+1,:])
+    return lAngles
+            
+
 
 
 legLabels = ['L3','R3','R2','R1','L1','L2']
@@ -218,6 +263,13 @@ L3 = 0
 R1 = 3
 R2 = 2
 R3 = 1
+
+# parameters for automated error correction
+tolerance = 3
+maxDis = 20
+updateWin = 2
+
+
 
 restLabels = ['head','tail','body']
 image = cv2.imread(imList[1])
@@ -234,7 +286,7 @@ la = []
 
 # array size would be: (4*3, nLegs, len(imList)) (number of values per leg, number of legs, total frames)
 
-legAngles = np.zeros(((nLegs+3)*3, len(imList)), dtype='float32')
+legAngles = np.zeros((len(imList), (nLegs+3)*3), dtype='float32')
 
 legAnglesHeader = [legLabels[0]+'_x', legLabels[0]+'_y', legLabels[0]+'_angle', 
                    legLabels[1]+'_x', legLabels[1]+'_y', legLabels[1]+'_angle', 
@@ -267,19 +319,19 @@ for im in xrange(len(imList)):
     
     for i in xrange(len(legBlobs)):
 #        legAngles[i*3+2,i,im] = angles[i,#store leg tip angle in third index
-        legAngles[i*3:(i*3)+3,im] = angles[i] # insert the original blob x-coordinate, y-coordinate
+        legAngles[im, i*3:(i*3)+3] = angles[i] # insert the original blob x-coordinate, y-coordinate
         
-    legAngles[18:20,im] = headBlobs[0][1:] # insert the original blob x-coordinate, y-coordinate
-    legAngles[20,im] = headAngle # insert the original blob x-coordinate, y-coordinate
+    legAngles[im, 18:20] = headBlobs[0][1:] # insert the original blob x-coordinate, y-coordinate
+    legAngles[im, 20] = headAngle # insert the original blob x-coordinate, y-coordinate
 
-    legAngles[21:23,im] = tailBlobs[0][1:] # insert the original blob x-coordinate, y-coordinate
-    legAngles[23,im] = tailAngle # insert the original blob x-coordinate, y-coordinate
+    legAngles[im, 21:23,] = tailBlobs[0][1:] # insert the original blob x-coordinate, y-coordinate
+    legAngles[im, 23] = tailAngle # insert the original blob x-coordinate, y-coordinate
 
-    legAngles[24:26,im] = bodyBlobs[0][1:] # insert the original blob x-coordinate, y-coordinate
-    legAngles[26,im] = bodyAngle # insert the original blob x-coordinate, y-coordinate
+    legAngles[im, 24:26] = bodyBlobs[0][1:] # insert the original blob x-coordinate, y-coordinate
+    legAngles[im, 26] = bodyAngle # insert the original blob x-coordinate, y-coordinate
 
 
-
+legAngles = errorcorrect(legAngles, tolerance, maxDis, nLegs, updateWin)
 
 
 cv2.namedWindow('main1', cv2.WINDOW_GUI_EXPANDED)
@@ -301,8 +353,8 @@ cv2.createButton('Save', save, 7, cv2.QT_NEW_BUTTONBAR,0 )
 im = 0
 img = cv2.imread(rawDir+rawList[0])
 for i in xrange(nLegs):
-    cv2.circle(img,(int(legAngles[i*3,im]),int(legAngles[(i*3)+1, im])), 3, tuple(patches[i]), thickness=2)#draw a circle on the detected leg tip blobs        
-    cv2.putText(img,legLabels[i], (int(legAngles[i*3,im]),int(legAngles[(i*3)+1, im])), cv2.FONT_HERSHEY_COMPLEX, 0.5, tuple(patches[i]))
+    cv2.circle(img,(int(legAngles[im, i*3]),int(legAngles[im, (i*3)+1])), 3, tuple(patches[i]), thickness=2)#draw a circle on the detected leg tip blobs        
+    cv2.putText(img,legLabels[i], (int(legAngles[im, i*3]),int(legAngles[im, (i*3)+1])), cv2.FONT_HERSHEY_COMPLEX, 0.5, tuple(patches[i]))
 
 while(1):    
 
@@ -367,7 +419,7 @@ for im in xrange(len(imList)):
     image = cv2.imread(imList[im])
     img = getIm(im, legAngles)
     for i in xrange(nLegs):
-        cv2.circle(blk,(int(legAngles[i*3,im]),int(legAngles[(i*3)+1, im])), 2, tuple(patches[i]), thickness=1)#draw a circle on the detected leg tip blobs        
+        cv2.circle(blk,(int(legAngles[im, i*3]),int(legAngles[im, (i*3)+1,])), 2, tuple(patches[i]), thickness=1)#draw a circle on the detected leg tip blobs        
 
     cv2.imshow('123',np.hstack((img, image, blk)))
     cv2.waitKey(30)
