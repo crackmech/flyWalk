@@ -82,7 +82,7 @@ colorDic = {
     'bgColor' : bgColor
 }
 
-col = 150
+col = 220
 patches = [
             [col,0,0],
             [0,col,0],
@@ -93,7 +93,7 @@ patches = [
             [0,col,0],
             [0,col,0]
             ]
-
+bgValue = 0
 leg = 0
 nUpdate = 0
 ix = 0
@@ -138,7 +138,7 @@ def getIm(im, lAngles):
     
     '''
     global img
-    img = np.ones(image.shape, dtype='uint8')*222#create an empty iamge with gray background 
+    img = np.ones(image.shape, dtype='uint8')*bgValue#create an empty iamge with gray background 
     cv2.circle(img,(int(lAngles[im, 18]),int(lAngles[im, 19])), 5, (0,0,255), thickness=4)#draw a circle on the detected head blobs
     cv2.circle(img,(int(lAngles[im, 21]),int(lAngles[im, 22])), 2, (100,255,0), thickness=2)#draw a circle on the detected tail blobs
     cv2.circle(img,(int(lAngles[im, 24]),int(lAngles[im, 25])), 2, (100,255,0), thickness=2)#draw a circle on the detected body  blobs
@@ -254,15 +254,15 @@ def errorcorrect(lAngles, tolerance, maxDis, nLegs, updateWin):
 
 
 
-legLabels = ['L3','R3','R2','R1','L1','L2']
+legLabels = ['L3','L2','L1','R1','R2','R3']
 
 #set Leg Id for labelin legs, sorted the basis of angle from the tail
-L1 = 4
-L2 = 5
 L3 = 0
+L2 = 1
+L1 = 2
 R1 = 3
-R2 = 2
-R3 = 1
+R2 = 4
+R3 = 5
 
 # parameters for automated error correction
 tolerance = 3
@@ -308,13 +308,11 @@ for im in xrange(len(imList)):
     #after getting all the blobs and their coordiantes, now find out their respective angles from the center of the image
     if len(legBlobs)!= nLegs:
         print im, len(legBlobs), len(headBlobs), len(tailBlobs), len(bodyBlobs)
-    headAngle = degrees(atan2(headBlobs[0][1]-imgCenter, headBlobs[0][2]-imgCenter))
-    tailAngle = degrees(atan2(tailBlobs[0][1]-imgCenter, tailBlobs[0][2]-imgCenter))
-    bodyAngle = degrees(atan2(bodyBlobs[0][1]-imgCenter, bodyBlobs[0][2]-imgCenter))
     angles = np.zeros((nLegs,3), dtype = 'float')
     for i in xrange(len(legBlobs)):
-        angles[i,:2] = legBlobs[i, 1:3] # insert the original blob values, (size, x-coordinate, y-coordinate)
-        angles[i,2] = degrees(atan2(legBlobs[i][1]-imgCenter, legBlobs[i][2]-imgCenter))# insert leg angle w.r.t the origin
+        angles[i,:3] = getLegtipAngle(legTipCoords = legBlobs[i, 1:3], tailCoords = tailBlobs[0], origin = imgCenter)
+#        angles[i,:2] = legBlobs[i, 1:3] # insert the original blob values, (size, x-coordinate, y-coordinate)
+#        angles[i,2] = degrees(atan2(legBlobs[i][1]-imgCenter, legBlobs[i][2]-imgCenter))# insert leg angle w.r.t the origin
     angles = angles[angles[:,2].argsort()]#sort the legAngles according to the angle values
     
     for i in xrange(len(legBlobs)):
@@ -322,13 +320,13 @@ for im in xrange(len(imList)):
         legAngles[im, i*3:(i*3)+3] = angles[i] # insert the original blob x-coordinate, y-coordinate
         
     legAngles[im, 18:20] = headBlobs[0][1:] # insert the original blob x-coordinate, y-coordinate
-    legAngles[im, 20] = headAngle # insert the original blob x-coordinate, y-coordinate
+    legAngles[im, 20] = degrees(atan2(headBlobs[0][1]-imgCenter, headBlobs[0][2]-imgCenter)) # insert the original blob x-coordinate, y-coordinate
 
     legAngles[im, 21:23,] = tailBlobs[0][1:] # insert the original blob x-coordinate, y-coordinate
-    legAngles[im, 23] = tailAngle # insert the original blob x-coordinate, y-coordinate
+    legAngles[im, 23] = degrees(atan2(tailBlobs[0][1]-imgCenter, tailBlobs[0][2]-imgCenter)) # insert the original blob x-coordinate, y-coordinate
 
     legAngles[im, 24:26] = bodyBlobs[0][1:] # insert the original blob x-coordinate, y-coordinate
-    legAngles[im, 26] = bodyAngle # insert the original blob x-coordinate, y-coordinate
+    legAngles[im, 26] = degrees(atan2(bodyBlobs[0][1]-imgCenter, bodyBlobs[0][2]-imgCenter)) # insert the original blob x-coordinate, y-coordinate
 
 
 legAngles = errorcorrect(legAngles, tolerance, maxDis, nLegs, updateWin)
@@ -339,7 +337,7 @@ cv2.namedWindow('main1', cv2.WINDOW_GUI_EXPANDED)
 cv2.setMouseCallback('main1',draw_circle)
 cv2.createTrackbar("trackbar1", "main1", 0, len(imList)-1, getRaw)
 
-legLabels = ['L3','R3','R2','R1','L1','L2']
+#legLabels = ['L3','R3','R2','R1','L1','L2']
 
 cv2.createButton('L1', button1, L1, cv2.QT_RADIOBOX,1 )
 cv2.createButton('L2', button1, L2, cv2.QT_RADIOBOX,0 )
@@ -414,7 +412,7 @@ cv2.destroyAllWindows()
 
 
 print 'done tracking, now displaying'
-blk = np.ones(image.shape, dtype='uint8')*222#create an empty iamge with gray background 
+blk = np.ones(image.shape, dtype='uint8')*bgValue#create an empty iamge with gray background 
 for im in xrange(len(imList)):
     image = cv2.imread(imList[im])
     img = getIm(im, legAngles)
@@ -434,21 +432,50 @@ cv2.waitKey()
 cv2.destroyAllWindows()
 
 
+dis = np.zeros((len(imList),nLegs))
+
+for l in xrange(nLegs):
+    for i in xrange(1,len(imList)):
+        dis[i,l] = np.sqrt(np.square(legAngles[i-1, l*3]-legAngles[i,l*3])+np.square(legAngles[i-1, (l*3)+1]-legAngles[i,(l*3)+1]))
 
 
+l=0
+plt.plot(dis[:, L1]+(l*30), label = 'L1')
+l+=1
+plt.plot(dis[:, L2]+(l*30), label = 'L2')
+l+=1
+plt.plot(dis[:, L3]+(l*30), label = 'L3')
+l+=1
+plt.plot(dis[:, R1]+(l*30), label = 'R1')
+l+=1
+plt.plot(dis[:, R2]+(l*30), label = 'R2')
+l+=1
+plt.plot(dis[:, R3]+(l*30), label = 'R3')
+plt.yticks([0, 30, 60, 90, 120, 150],["L1", 'L2', 'L3', 'R1', 'R2', 'R3'])
+
+#plt.legend(loc='right', bbox_to_anchor=(1.08,0.5),
+#          fancybox=True, shadow=True)
+#plt.legend(loc = 'upper center')
+plt.show()
+
+plt.close()
 
 
-
-
-
-
-
-
-
-
-
-
-
+l=0
+plt.plot(legAngles[:, (L1*3)+2], label = 'L1')
+l+=1
+plt.plot(legAngles[:, (L2*3)+2], label = 'L2')
+l+=1
+plt.plot(legAngles[:, (L3*3)+2], label = 'L3')
+l+=1
+plt.plot(legAngles[:, (R1*3)+2], label = 'R1')
+l+=1
+plt.plot(legAngles[:, (R2*3)+2], label = 'R2')
+l+=1
+plt.plot(legAngles[:, (R3*3)+2], label = 'R3')
+#plt.yticks([0, 30, 60, 90, 120, 150],["L1", 'L2', 'L3', 'R1', 'R2', 'R3'])
+plt.legend(loc = 'upper left')
+plt.show()
 
 
 
