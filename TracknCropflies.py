@@ -23,10 +23,17 @@ from thread import start_new_thread as startNT
 import Tkinter as tk
 import tkFileDialog as tkd
 import zipfile
+import matplotlib.pyplot as plt
 
 
 
 dirname = '/home/aman/Desktop/testWalk/20161017_200525'
+dirname = '/media/aman/data/testWalk/20161017_200525'
+
+initialDir = '/media/flywalk/data/'
+initialDir = '/media/aman/data/flyWalk_data/LegPainting/media (2)/flywalk/data/delete/glassChamber'
+#initialDir = '/media/aman/data/flyWalk_data/LegPainting/media/flywalk/data/delete/glassChamber'
+
 
 params = cv2.SimpleBlobDetector_Params()
 params.blobColor = 0
@@ -45,6 +52,7 @@ cropBox =100
 def present_time():
         now = datetime.now()
         return now.strftime('%Y%m%d_%H%M%S')
+
 def natural_sort(l): 
     convert = lambda text: int(text) if text.isdigit() else text.lower() 
     alphanum_key = lambda key: [ convert(c) for c in re.split('([0-9]+)', key) ] 
@@ -61,7 +69,28 @@ def getFolder(initialDir):
     root.destroy()
     return initialDir+'/'
 
+def createTrack(trackData, img):
+    '''
+    input:
+        create an image of shape 'imgShape' with the x,y coordiates of the track from the array 'trackData
+    returns:
+        an np.array with the cv2 image array, which can be saved or viewed independently of this function
+    '''
+    #img = np.ones((imgShape[0], imgShape[1], 3), dtype = 'uint8')
+    blue = np.hstack((np.linspace(0, 255, num = len(trackData[0])/2),np.linspace(255, 0, num = (len(trackData[0])/2)+1)))
+    green = np.linspace(255, 0, num = len(trackData[0]))
+    red = np.linspace(0, 255, num = len(trackData[0]))
+    cv2.putText(img,'Total frames: '+str(len(trackData[0])), (10,30), cv2.FONT_HERSHEY_COMPLEX, 0.5, (0,255,255))
+    for i in xrange(1,len(trackData[0])):
+        cv2.circle(img,(int(trackData[0,i]), int(trackData[1,i])), 2, (blue[i], green[i], red[i]), thickness=2)#draw a circle on the detected body blobs
+    for i in xrange(1,len(trackData[0])):
+        if i%100==0:
+            cv2.putText(img,'^'+str(i), (int(trackData[0,i]), int(trackData[1,i])), cv2.FONT_HERSHEY_COMPLEX, 0.5, (0,255,255))
+    #cv2.imshow('track', img); cv2.waitKey(); cv2.destroyAllWindows()
+    return img
+
 def tracknCrop(dirname):
+    print dirname
     trackDir = dirname+"_tracked/"
     try:
         os.mkdir(trackDir)
@@ -69,7 +98,7 @@ def tracknCrop(dirname):
         pass
     
     flist = natural_sort(os.listdir(dirname))
-    detector = cv2.SimpleBlobDetector(params)
+    detector = cv2.SimpleBlobDetector_create(params)
     
 #    print "Started at "+present_time()
     y = True
@@ -82,7 +111,7 @@ def tracknCrop(dirname):
         os.mkdir(saveDir_cropped)
     except:
         pass
-    
+    im = []
     for f in range(0, len(flist)):
 #        if f%1000==0:
 #            sys.stdout.write("\rAt %s Processing File: %d"%(present_time(),f))
@@ -93,7 +122,7 @@ def tracknCrop(dirname):
             for kp in keypoints:
                 im_cropped = im[int(kp.pt[1])-cropBox:int(kp.pt[1])+cropBox,\
                                 int(kp.pt[0])-cropBox:int(kp.pt[0])+cropBox]
-                trackData[:,f] = (kp.pt[1],kp.pt[0])
+                trackData[:,f] = (kp.pt[0],kp.pt[1])
                 cv2.imwrite(saveDir+flist[f], im)
             y=True
             if im_cropped.size == cropBox*cropBox*4:
@@ -112,8 +141,11 @@ def tracknCrop(dirname):
                     pass
                 nDir+=1
                 y=False
-    
-    np.savetxt(dirname+"_trackData_"+rawDir+".csv",np.transpose(trackData), fmt='%.3f', delimiter = ',', header = 'Y-Coordinate, X-Coordinate')
+    fname = dirname+"_trackData_"+rawDir
+    if im!=[]:
+        trackImg = createTrack(trackData, cv2.imread(dirname+'/'+flist[0]))
+        cv2.imwrite(fname+'.jpeg', trackImg)
+    np.savetxt(fname+".csv",np.transpose(trackData), fmt='%.3f', delimiter = ',', header = 'X-Coordinate, Y-Coordinate')
     print "\ndone "+dirname+" at "+present_time()
     dirs = natural_sort([ name for name in os.listdir(trackDir) if os.path.isdir(os.path.join(trackDir, name)) ])
     os.chdir(trackDir)
@@ -136,7 +168,7 @@ def tracknCrop(dirname):
                 os.remove(d+"/"+f)
             os.rmdir(d)
 
-
+    return trackData
 
 '''
 
@@ -147,8 +179,6 @@ for dirname, subdirs, files in os.walk("mydirectory"):
         zf.write(os.path.join(dirname, filename))
 zf.close()
 '''
-initialDir = '/media/flywalk/data/'
-
 baseDir = getFolder(initialDir)
 rawdirs = natural_sort([ name for name in os.listdir(baseDir) if os.path.isdir(os.path.join(baseDir, name)) ])
 
@@ -158,7 +188,7 @@ for rawDir in rawdirs:
     d = os.path.join(baseDir,rawDir,'imageData')
     imdirs = natural_sort([ name for name in os.listdir(d) if os.path.isdir(os.path.join(d, name)) ])
     for imdir in imdirs:
-        tracknCrop(os.path.join(d,imdir))
+        t = tracknCrop(os.path.join(d,imdir))
 
 
 

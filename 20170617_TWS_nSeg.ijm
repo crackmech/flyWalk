@@ -1,28 +1,21 @@
-//import ij.*;
-//import ij.process.*;
-//import trainableSegmentation.*;
 
-
-baseDir = '/home/vijay/amanaggarwal/flyWalk/WEKA/'
+baseDir = '/home/vijay/amanaggarwal/flyWalk/WEKA/';
 inputDir = baseDir+"/CS_1_20170512_225508_tracked_0/";
 outputDir = baseDir+"tmp/sc/";
+
+baseDir = 'D:\\flyWalk_data\\LegPainting\\test\\';
+inputDir = baseDir+"\\temp_cropped\\";
+outputDir = baseDir+"sc\\";
+
+
+
 classifier = baseDir+"20170615_6Classes.model";
+classifier = baseDir+"testClassifier.model";
+
 flist = getFileList(inputDir);
-//print (flist);
-//outputDir = "/home/aman/Desktop/tmp_20160924";
-//classifier = outputDir+"/classifier_L-LT-Ant-H-T.model";
-
-//print(list);
-//run("Trainable Weka Segmentation", "open="+flist[0]);
-
-//selectWindow("Trainable Weka Segmentation v3.1.2");
-//call("trainableSegmentation.Weka_Segmentation.loadClassifier", "/home/aman/Desktop/classifier.model");
-processFile(inputDir, flist, 0, outputDir,flist.length)
 
 
-//call("trainableSegmentation.Weka_Segmentation.applyClassifier", "/home/aman/Desktop/OK371_20150518_1200_06-18_1_2", "_2015-05-24-184352-0407.raw.jpeg", "showResults=false", "storeResults=true", "probabilityMaps=true", "/home/aman/Desktop/tmp_20160924");
-
-//suffix = ".jpeg";
+processFile(inputDir, flist, 0, outputDir,flist.length);
 
 n=10;
 
@@ -48,7 +41,7 @@ function processFolder(inputDir,n) {
 
 
 
-processFolder(inputDir,n);
+//processFolder(inputDir,n);
 
 
 

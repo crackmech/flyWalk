@@ -53,13 +53,6 @@ cropBox =100
 
 detector = cv2.SimpleBlobDetector_create(params)
 
-
-imList = natural_sort(os.listdir(imDir))
-
-rawList = natural_sort(os.listdir(rawDir))
-
-os.chdir(imDir)
-
 nClasses = 6
 nLegs = 6
 
@@ -98,6 +91,16 @@ leg = 0
 nUpdate = 0
 ix = 0
 iy= 0
+
+def getFolder(initialDir):
+    '''
+    GUI funciton for browsing and selecting the folder
+    '''    
+    root = tk.Tk()
+    initialDir = tkd.askdirectory(parent=root,
+                initialdir = initialDir, title='Please select a directory')
+    root.destroy()
+    return initialDir+os.sep
 
 
 def getBlob(image, dilateKernel, color, nblob):
@@ -150,7 +153,7 @@ def getIm(im, lAngles):
         cv2.putText(img,legLabels[i], (int(lAngles[im, i*3]),int(lAngles[im, (i*3)+1])), cv2.FONT_HERSHEY_COMPLEX, 0.5, tuple(patches[i]))
     return img
 
-
+fontAngle = 0.4
 
 def getRaw(im):
     '''
@@ -158,9 +161,11 @@ def getRaw(im):
     '''
     global img, ix, iy
     img = cv2.imread(rawDir+rawList[im])
+    cv2.putText(img,'H'+str(legAngles[im, 20]), (int(legAngles[im, 18]),int(legAngles[im, 19])), cv2.FONT_HERSHEY_COMPLEX, fontAngle, (0,0,255))
+    cv2.putText(img,'T'+str(legAngles[im, 23]), (int(legAngles[im, 21]),int(legAngles[im, 22])), cv2.FONT_HERSHEY_COMPLEX, fontAngle, (0,0,255))
     for i in xrange(nLegs):
         cv2.circle(img,(int(legAngles[im, i*3]),int(legAngles[im, (i*3)+1])), 3, tuple(patches[i]), thickness=2)#draw a circle on the detected leg tip blobs        
-        cv2.putText(img,legLabels[i], (int(legAngles[im, i*3]),int(legAngles[im, (i*3)+1])), cv2.FONT_HERSHEY_COMPLEX, 0.5, tuple(patches[i]))
+        cv2.putText(img,legLabels[i]+str(legAngles[im, (i*3)+2]), (int(legAngles[im, i*3]),int(legAngles[im, (i*3)+1])), cv2.FONT_HERSHEY_COMPLEX, fontAngle, tuple(patches[i]))
     ix = 0
     iy = 0
 
@@ -194,7 +199,7 @@ def draw_circle(event,x,y,flags,param):
         cv2.circle(img,(ix,iy),2,(255,0,0),1)
         print ix, iy
 
-def getLegtipAngle(legTipCoords, tailCoords, origin):
+def getLegtipAngle(legTipCoords, tailCoords, headCoords):
     '''
     input: 
         legTipCoords:   legtip centroid coordinates (x,y)
@@ -203,9 +208,9 @@ def getLegtipAngle(legTipCoords, tailCoords, origin):
     output:
         legTipAngle:    a numpy array containing legtip coordinates and angle (x,y,theta)
     '''
-    legTipAngle = degrees(atan2(legTipCoords[1]-origin, legTipCoords[0]-origin))# insert leg angle w.r.t the origin
-    tailAngle = degrees(atan2(tailCoords[1]-origin, tailCoords[0]-origin))# insert leg angle w.r.t the origin
-    return np.array([legTipCoords[0], legTipCoords[1], legTipAngle], dtype='float32')
+    legTipAngle = (degrees(atan2(legTipCoords[1]-tailCoords[0], legTipCoords[0]-tailCoords[1]))+360)%360# insert leg angle w.r.t the origin
+    headAngle = (degrees(atan2(headCoords[1]-tailCoords[1], headCoords[0]-tailCoords[0]))+360)%360# insert leg angle w.r.t the origin
+    return np.array([legTipCoords[0], legTipCoords[1], (legTipAngle)], dtype='float32')
 
 def neighbourUpdate(inArray):
     '''
@@ -251,18 +256,25 @@ def errorcorrect(lAngles, tolerance, maxDis, nLegs, updateWin):
                     lAngles[i,:] = neighbourUpdate(lAngles[i-updateWin:(i+updateWin)+1,:])
     return lAngles
             
+imDir = getFolder(imDir)
+rawDir = getFolder(rawDir)
 
+imList = natural_sort(os.listdir(imDir))
+rawList = natural_sort(os.listdir(rawDir))
+os.chdir(imDir)
 
 
 legLabels = ['L3','L2','L1','R1','R2','R3']
 
+legLabels = ['L1','R1','R2','R3','L3','L2']
+
 #set Leg Id for labelin legs, sorted the basis of angle from the tail
-L3 = 0
-L2 = 1
-L1 = 2
-R1 = 3
-R2 = 4
-R3 = 5
+L1 = 0
+L2 = 5
+L3 = 4
+R3 = 3
+R2 = 2
+R1 = 1
 
 # parameters for automated error correction
 tolerance = 3
@@ -310,7 +322,7 @@ for im in xrange(len(imList)):
         print im, len(legBlobs), len(headBlobs), len(tailBlobs), len(bodyBlobs)
     angles = np.zeros((nLegs,3), dtype = 'float')
     for i in xrange(len(legBlobs)):
-        angles[i,:3] = getLegtipAngle(legTipCoords = legBlobs[i, 1:3], tailCoords = tailBlobs[0], origin = imgCenter)
+        angles[i,:] = getLegtipAngle(legTipCoords = legBlobs[i, 1:3], tailCoords = tailBlobs[0], headCoords= headBlobs[0])
 #        angles[i,:2] = legBlobs[i, 1:3] # insert the original blob values, (size, x-coordinate, y-coordinate)
 #        angles[i,2] = degrees(atan2(legBlobs[i][1]-imgCenter, legBlobs[i][2]-imgCenter))# insert leg angle w.r.t the origin
     angles = angles[angles[:,2].argsort()]#sort the legAngles according to the angle values
@@ -339,20 +351,21 @@ cv2.createTrackbar("trackbar1", "main1", 0, len(imList)-1, getRaw)
 
 #legLabels = ['L3','R3','R2','R1','L1','L2']
 
-cv2.createButton('L1', button1, L1, cv2.QT_RADIOBOX,1 )
-cv2.createButton('L2', button1, L2, cv2.QT_RADIOBOX,0 )
-cv2.createButton('L3', button1, L3, cv2.QT_RADIOBOX,0)
-cv2.createButton('R1', button1, R1, cv2.QT_RADIOBOX,0)
-cv2.createButton('R2', button1, R2, cv2.QT_RADIOBOX,0)
-cv2.createButton('R3', button1, R3, cv2.QT_RADIOBOX,0)
-cv2.createButton('Update', update, 6, cv2.QT_NEW_BUTTONBAR,0 )
-cv2.createButton('Save', save, 7, cv2.QT_NEW_BUTTONBAR,0 )
+##cv2.createButton('L1', button1, L1, cv2.QT_RADIOBOX,1 )
+##cv2.createButton('L2', button1, L2, cv2.QT_RADIOBOX,0 )
+##cv2.createButton('L3', button1, L3, cv2.QT_RADIOBOX,0)
+##cv2.createButton('R1', button1, R1, cv2.QT_RADIOBOX,0)
+##cv2.createButton('R2', button1, R2, cv2.QT_RADIOBOX,0)
+##cv2.createButton('R3', button1, R3, cv2.QT_RADIOBOX,0)
+##cv2.createButton('Update', update, 6, cv2.QT_NEW_BUTTONBAR,0 )
+##cv2.createButton('Save', save, 7, cv2.QT_NEW_BUTTONBAR,0 )
 
 im = 0
 img = cv2.imread(rawDir+rawList[0])
 for i in xrange(nLegs):
     cv2.circle(img,(int(legAngles[im, i*3]),int(legAngles[im, (i*3)+1])), 3, tuple(patches[i]), thickness=2)#draw a circle on the detected leg tip blobs        
-    cv2.putText(img,legLabels[i], (int(legAngles[im, i*3]),int(legAngles[im, (i*3)+1])), cv2.FONT_HERSHEY_COMPLEX, 0.5, tuple(patches[i]))
+    cv2.putText(img,'H'+str(legAngles[im, 20]), (int(legAngles[im, 18]),int(legAngles[im, 19])), cv2.FONT_HERSHEY_COMPLEX, 0.5, tuple(patches[i]))
+    cv2.putText(img,'T'+str(legAngles[im, 23]), (int(legAngles[im, 21]),int(legAngles[im, 22])), cv2.FONT_HERSHEY_COMPLEX, 0.5, tuple(patches[i]))
 
 while(1):    
 
@@ -474,7 +487,7 @@ plt.plot(legAngles[:, (R2*3)+2], label = 'R2')
 l+=1
 plt.plot(legAngles[:, (R3*3)+2], label = 'R3')
 #plt.yticks([0, 30, 60, 90, 120, 150],["L1", 'L2', 'L3', 'R1', 'R2', 'R3'])
-plt.legend(loc = 'upper left')
+plt.legend(loc = 'upper left', ncol=nLegs)
 plt.show()
 
 
