@@ -31,6 +31,21 @@ imDir = "/home/aman/Downloads/opencv/CS_1_20170512_225019_tracked_8_6Classes/"
 rawDir = "/home/aman/Downloads/opencv/CS_1_20170512_225019_tracked_8/"
 csvName = rawDir.rstrip('/')+'.csv'
 
+legLabels = ['L3','L2','L1','R1','R2','R3']
+
+#legLabels = ['L1','R1','R2','R3','L3','L2']
+
+legLabels = ['L3','L2','L1','R1','R2','R3']
+
+#set Leg Id for labelin legs, sorted the basis of angle from the tail
+L1 = 2
+L2 = 1
+L3 = 0
+R3 = 5
+R2 = 4
+R1 = 3
+
+
 
 headColor = [10, 225, 255]
 tailColor = [255, 226, 84]
@@ -199,7 +214,7 @@ def draw_circle(event,x,y,flags,param):
         cv2.circle(img,(ix,iy),2,(255,0,0),1)
         print ix, iy
 
-def getLegtipAngle(legTipCoords, tailCoords, headCoords):
+def getLegtipAngle(legTipCoords, headCoords, tailCoords, bodyCoords):
     '''
     input: 
         legTipCoords:   legtip centroid coordinates (x,y)
@@ -208,9 +223,9 @@ def getLegtipAngle(legTipCoords, tailCoords, headCoords):
     output:
         legTipAngle:    a numpy array containing legtip coordinates and angle (x,y,theta)
     '''
-    legTipAngle = (degrees(atan2(legTipCoords[1]-tailCoords[0], legTipCoords[0]-tailCoords[1]))+360)%360# insert leg angle w.r.t the origin
-    headAngle = (degrees(atan2(headCoords[1]-tailCoords[1], headCoords[0]-tailCoords[0]))+360)%360# insert leg angle w.r.t the origin
-    return np.array([legTipCoords[0], legTipCoords[1], (legTipAngle)], dtype='float32')
+    legTipAngle = (degrees(atan2(legTipCoords[1]-bodyCoords[1], legTipCoords[0]-bodyCoords[0])))#+360)%360# insert leg angle w.r.t the origin
+    headAngle = (degrees(atan2(headCoords[1]-bodyCoords[1], headCoords[0]-bodyCoords[0])))#+360)%360# insert leg angle w.r.t the origin
+    return np.array([legTipCoords[0], legTipCoords[1], (legTipAngle-headAngle)], dtype='float32')
 
 def neighbourUpdate(inArray):
     '''
@@ -264,17 +279,6 @@ rawList = natural_sort(os.listdir(rawDir))
 os.chdir(imDir)
 
 
-legLabels = ['L3','L2','L1','R1','R2','R3']
-
-legLabels = ['L1','R1','R2','R3','L3','L2']
-
-#set Leg Id for labelin legs, sorted the basis of angle from the tail
-L1 = 0
-L2 = 5
-L3 = 4
-R3 = 3
-R2 = 2
-R1 = 1
 
 # parameters for automated error correction
 tolerance = 3
@@ -322,7 +326,7 @@ for im in xrange(len(imList)):
         print im, len(legBlobs), len(headBlobs), len(tailBlobs), len(bodyBlobs)
     angles = np.zeros((nLegs,3), dtype = 'float')
     for i in xrange(len(legBlobs)):
-        angles[i,:] = getLegtipAngle(legTipCoords = legBlobs[i, 1:3], tailCoords = tailBlobs[0], headCoords= headBlobs[0])
+        angles[i,:] = getLegtipAngle(legTipCoords = legBlobs[i, 1:3], headCoords= headBlobs[0], tailCoords = tailBlobs[0], bodyCoords = bodyBlobs[0])
 #        angles[i,:2] = legBlobs[i, 1:3] # insert the original blob values, (size, x-coordinate, y-coordinate)
 #        angles[i,2] = degrees(atan2(legBlobs[i][1]-imgCenter, legBlobs[i][2]-imgCenter))# insert leg angle w.r.t the origin
     angles = angles[angles[:,2].argsort()]#sort the legAngles according to the angle values
