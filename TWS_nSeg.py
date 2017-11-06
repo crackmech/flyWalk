@@ -1,5 +1,5 @@
 import ij;
-from ij import IJ
+from ij import IJ, ImagePlus, ImageStack
 IJ.run("Trainable Weka Segmentation", "open=./images/icon.png");
 from ij import ImageStack
 import ij.process;
@@ -26,7 +26,6 @@ inputDir = baseDir+"temp_cropped/";
 outputDir = baseDir+"sc/";
 
 
-
 #baseDir = 'D:\\flyWalk_data\\LegPainting\\test\\'
 #inputDir = baseDir+"\\temp_cropped\\";
 #outputDir = baseDir+"sc\\";
@@ -36,6 +35,8 @@ classifier = baseDir+"20170615_6Classes.model";
 
 classifier = baseDir+"20170615_6Classes_updated20171106.model"
 #classifier = baseDir+"testClassifier.model";
+
+nIm = 4 # number of images to be processed per batch
 
 try:
     os.mkdir(outputDir)
@@ -57,16 +58,23 @@ for i in xrange(len(flist)):
 	if imp:
 		images.append(imp)
 
-for i in xrange(len(flist)):
-	imp = images[i]
+for i in xrange(0, len(flist)-(len(flist)%nIm), nIm):
+	if i%(10*nIm)==0:
+		print i, present_time()
+	imStack = ImageStack(imp.width, imp.height)
+	for j in xrange(nIm):
+		imStack.addSlice(str(i+j),images[i+j].getProcessor())
+	imp = ImagePlus('images',imStack)
 	if imp:
-		segIm = segs.applyClassifier(imp, 6, False)
-		IJ.save(segIm, outputDir+flist[i]);
+		segIm = segs.applyClassifier(imp, 0, False)
+		segImStack = segIm.getStack()
+		for k in xrange(nIm):
+			IJ.save(ImagePlus('a',segImStack.getProcessor(k+1)), outputDir+flist[i+k]);
 
-print present_time() 
+		#IJ.save(segIm, outputDir+flist[i]);
 
-print 'Finished Segmentation'
+print 'Finished Segmentation at: '+present_time() 
 
-IJ.run("Quit")
+#IJ.run("Quit")
 
 
