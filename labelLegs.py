@@ -29,15 +29,6 @@ def natural_sort(l):
 
 imDir = "/home/aman/Downloads/opencv/CS_1_20170512_225019_tracked_8_6Classes/"
 rawDir = "/home/aman/Downloads/opencv/CS_1_20170512_225019_tracked_8/"
-
-
-
-
-baseDir = '/media/aman/data/flyWalk_data/LegPainting/test/'
-rawDir = baseDir+"temp_cropped/";
-imDir = baseDir+"sc/";
-
-
 csvName = rawDir.rstrip('/')+'.csv'
 
 legLabels = ['L3','L2','L1','R1','R2','R3']
@@ -62,16 +53,6 @@ bodyColor = [0, 0, 255]
 LegColor  = [130, 255, 79]
 legTipcolor = [193, 121, 255]
 bgColor = [255, 118, 198]
-
-
-headColor = [153,153,153]
-tailColor = [204,204,204]
-bodyColor = [0, 0, 0]
-LegColor  = [51,51,51]
-legTipcolor = [255, 255, 255]
-bgColor = [102,102,102]
-
-
 
 params = cv2.SimpleBlobDetector_Params()
 params.blobColor = 255
@@ -161,15 +142,43 @@ def getBlob(image, dilateKernel, color, nblob):
     for i in xrange(len(keypoints)):
         blobs.append([keypoints[i].size, keypoints[i].pt[0],keypoints[i].pt[1]]) #(size, x-coordiante, y-coordinate)
 #    print '==========================='
-    if blobs !=[]:
-        blobs = np.array(blobs)
-        blobs = (blobs[blobs[:,0].argsort()])#sort by size of the blob
-        blobs = blobs[-nblob:]# select only the highest size blobs for nLegs
-    else:
-        print 'no blobs detected'
-        blobs = [[10,100,100]]
+    blobs = np.array(blobs)
+    blobs = (blobs[blobs[:,0].argsort()])#sort by size of the blob
+    blobs = blobs[-nblob:]# select only the highest size blobs for nLegs
 #    print blobs
     return blobs
+
+def getLegTips(image, dilateKernel, color, nblob):
+    '''
+    input:
+        image: image to be segmented
+        dilatKernek: Kernel size for dilating the extracted points having given colors
+        color: color to be segmented
+        nBlob: number of blobs to be extracted, based on size, starting from maximum size first
+    returns:
+        an array of blobs containing: 
+            0: blob size
+            1: blob X coordinate
+            2: blob Y coordinate
+    '''
+    im = np.array(((image[:,:,0] == color[0]) &\
+                    (image[:,:,1] == color[1]) &\
+                    (image[:,:,2] == color[2]))*255, dtype = 'uint8')
+    kernel = np.ones((dilateKernel, dilateKernel), np.uint8)# to dilate
+    im = cv2.dilate(im, kernel, iterations=1)
+    keypoints = detector.detect(im)
+    im = cv2.cvtColor(im, cv2.COLOR_GRAY2BGR)
+    blobs = []
+    for i in xrange(len(keypoints)):
+        blobs.append([keypoints[i].size, keypoints[i].pt[0],keypoints[i].pt[1]]) #(size, x-coordiante, y-coordinate)
+#    print '==========================='
+    blobs = np.array(blobs)
+    blobs = (blobs[blobs[:,0].argsort()])#sort by size of the blob
+    blobs = blobs[-nblob:]# select only the highest size blobs for nLegs
+#    print blobs
+    return blobs
+
+
 def getIm(im, lAngles):
     '''
     input:
@@ -264,7 +273,7 @@ def neighbourUpdate(inArray):
     errorIndex = (len(inArray)-1)/2
     tempCoords = np.delete(inArray, (errorIndex), axis=0)
 
-    return np.average(tempCoords[0,:])
+    return np.average(tempCoords, axis = 0)
 
 
 def errorcorrect(lAngles, tolerance, maxDis, nLegs, updateWin):
@@ -365,7 +374,7 @@ for im in xrange(len(imList)):
     legAngles[im, 26] = degrees(atan2(bodyBlobs[0][1]-imgCenter, bodyBlobs[0][2]-imgCenter)) # insert the original blob x-coordinate, y-coordinate
 
 
-#legAngles = errorcorrect(legAngles, tolerance, maxDis, nLegs, updateWin)
+legAngles = errorcorrect(legAngles, tolerance, maxDis, nLegs, updateWin)
 
 
 cv2.namedWindow('main1', cv2.WINDOW_GUI_EXPANDED)

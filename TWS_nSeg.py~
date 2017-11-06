@@ -22,7 +22,7 @@ def natural_sort(l):
 baseDir = '/home/vijay/amanaggarwal/flyWalk/WEKA/'
 
 baseDir = '/media/aman/data/flyWalk_data/LegPainting/test/'
-inputDir = baseDir+"temp_cropped/";
+inputDir = baseDir+"/temp_cropped/";
 outputDir = baseDir+"sc/";
 
 
@@ -34,7 +34,6 @@ outputDir = baseDir+"sc/";
 classifier = baseDir+"20170615_6Classes.model";
 
 
-classifier = baseDir+"20170615_6Classes_updated20171106.model"
 #classifier = baseDir+"testClassifier.model";
 
 try:
@@ -46,10 +45,11 @@ flist = natural_sort(os.listdir(inputDir));
 print len(flist);
 
 
-print 'Loading Classifier at: '+present_time()
+print present_time()
 segs = ts.WekaSegmentation()
 segs.loadClassifier(classifier)
-print 'Loaded Classifier at:  '+present_time()
+print present_time() 
+print 'loaded classifier'
 
 images = []
 for i in xrange(len(flist)):
@@ -60,7 +60,7 @@ for i in xrange(len(flist)):
 for i in xrange(len(flist)):
 	imp = images[i]
 	if imp:
-		segIm = segs.applyClassifier(imp, 6, False)
+		segIm = segs.applyClassifier(imp, 0, False)
 		IJ.save(segIm, outputDir+flist[i]);
 
 print present_time() 

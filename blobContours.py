@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-Created on Wed Nov  1 05:31:58 2017
+Created on Sun Nov  5 06:28:04 2017
 
 @author: aman
 """
+
 
 import numpy as np
 import cv2
@@ -27,17 +28,8 @@ def natural_sort(l):
     return sorted(l, key = alphanum_key)
 
 
-imDir = "/home/aman/Downloads/opencv/CS_1_20170512_225019_tracked_8_6Classes/"
-rawDir = "/home/aman/Downloads/opencv/CS_1_20170512_225019_tracked_8/"
-
-
-
-
-baseDir = '/media/aman/data/flyWalk_data/LegPainting/test/'
-rawDir = baseDir+"temp_cropped/";
-imDir = baseDir+"sc/";
-
-
+imDir = "/media/aman/data/flyWalk_data/LegPainting/test/CNN/cm/temp_cropped_42_results/"
+rawDir = "/media/aman/data/flyWalk_data/LegPainting/test/CNN/cm/temp_cropped_42/"
 csvName = rawDir.rstrip('/')+'.csv'
 
 legLabels = ['L3','L2','L1','R1','R2','R3']
@@ -56,22 +48,20 @@ R1 = 3
 
 
 
-headColor = [10, 225, 255]
-tailColor = [255, 226, 84]
-bodyColor = [0, 0, 255]
-LegColor  = [130, 255, 79]
-legTipcolor = [193, 121, 255]
-bgColor = [255, 118, 198]
+#headColor = [10, 225, 255]
+#tailColor = [255, 226, 84]
+#bodyColor = [0, 0, 255]
+#LegColor  = [130, 255, 79]
+#legTipcolor = [193, 121, 255]
+#bgColor = [255, 118, 198]
 
 
-headColor = [153,153,153]
-tailColor = [204,204,204]
-bodyColor = [0, 0, 0]
-LegColor  = [51,51,51]
-legTipcolor = [255, 255, 255]
-bgColor = [102,102,102]
-
-
+headColor = [1, 138, 58]
+tailColor = [126, 1, 177]
+bodyColor = [126, 1, 177]
+LegColor  = [0, 0, 1]
+legTipcolor = [0, 0, 1]
+bgColor = [1, 30, 172]
 
 params = cv2.SimpleBlobDetector_Params()
 params.blobColor = 255
@@ -90,7 +80,7 @@ detector = cv2.SimpleBlobDetector_create(params)
 nClasses = 6
 nLegs = 6
 
-legDilate = 1
+legDilate = 2
 othersDilate = 5
 colors = [
             headColor,
@@ -150,24 +140,24 @@ def getBlob(image, dilateKernel, color, nblob):
             1: blob X coordinate
             2: blob Y coordinate
     '''
+#    cv2.imshow('123', image); cv2.waitKey(); cv2.destroyAllWindows()
+#    print color
     im = np.array(((image[:,:,0] == color[0]) &\
                     (image[:,:,1] == color[1]) &\
                     (image[:,:,2] == color[2]))*255, dtype = 'uint8')
     kernel = np.ones((dilateKernel, dilateKernel), np.uint8)# to dilate
     im = cv2.dilate(im, kernel, iterations=1)
+#    cv2.imshow('123', im); cv2.waitKey(); cv2.destroyAllWindows()
     keypoints = detector.detect(im)
     im = cv2.cvtColor(im, cv2.COLOR_GRAY2BGR)
     blobs = []
     for i in xrange(len(keypoints)):
         blobs.append([keypoints[i].size, keypoints[i].pt[0],keypoints[i].pt[1]]) #(size, x-coordiante, y-coordinate)
 #    print '==========================='
-    if blobs !=[]:
-        blobs = np.array(blobs)
-        blobs = (blobs[blobs[:,0].argsort()])#sort by size of the blob
-        blobs = blobs[-nblob:]# select only the highest size blobs for nLegs
-    else:
-        print 'no blobs detected'
-        blobs = [[10,100,100]]
+    blobs = np.array(blobs)
+#    print len(blobs)
+    blobs = (blobs[blobs[:,0].argsort()])#sort by size of the blob
+    blobs = blobs[-nblob:]# select only the highest size blobs for nLegs
 #    print blobs
     return blobs
 def getIm(im, lAngles):
@@ -264,7 +254,7 @@ def neighbourUpdate(inArray):
     errorIndex = (len(inArray)-1)/2
     tempCoords = np.delete(inArray, (errorIndex), axis=0)
 
-    return np.average(tempCoords[0,:])
+    return np.average(tempCoords, axis = 0)
 
 
 def errorcorrect(lAngles, tolerance, maxDis, nLegs, updateWin):
@@ -340,7 +330,7 @@ legAnglesHeader = [legLabels[0]+'_x', legLabels[0]+'_y', legLabels[0]+'_angle',
 
 for im in xrange(len(imList)):
     image = cv2.imread(imList[im])
-    legBlobs = getBlob(image, legDilate, colors[4],nLegs)
+    legBlobs = getBlob(image, legDilate, colors[3], nLegs)
     headBlobs = getBlob(image, othersDilate, colors[0],1)
     tailBlobs = getBlob(image, othersDilate, colors[1],1)
     bodyBlobs = getBlob(image, othersDilate, colors[2],1)
@@ -447,93 +437,21 @@ while(1):
         
 cv2.destroyAllWindows()
 
+kernel = np.ones((legDilate, legDilate), np.uint8)# to dilate
 
 print 'done tracking, now displaying'
 blk = np.ones(image.shape, dtype='uint8')*bgValue#create an empty iamge with gray background 
 for im in xrange(len(imList)):
     image = cv2.imread(imList[im])
+    image = cv2.dilate(image, kernel, iterations=1)
     img = getIm(im, legAngles)
     for i in xrange(nLegs):
         cv2.circle(blk,(int(legAngles[im, i*3]),int(legAngles[im, (i*3)+1,])), 2, tuple(patches[i]), thickness=1)#draw a circle on the detected leg tip blobs        
+        cv2.circle(image,(int(legAngles[im, i*3]),int(legAngles[im, (i*3)+1,])), 2, tuple(patches[i]), thickness=1)#draw a circle on the detected leg tip blobs        
 
     cv2.imshow('123',np.hstack((img, image, blk)))
-    cv2.waitKey(30)
+    cv2.waitKey(300)
 
 cv2.destroyAllWindows()
-
-
-
-cv2.imshow('123',blk)
-cv2.waitKey()
-
-cv2.destroyAllWindows()
-
-
-dis = np.zeros((len(imList),nLegs))
-
-for l in xrange(nLegs):
-    for i in xrange(1,len(imList)):
-        dis[i,l] = np.sqrt(np.square(legAngles[i-1, l*3]-legAngles[i,l*3])+np.square(legAngles[i-1, (l*3)+1]-legAngles[i,(l*3)+1]))
-
-
-l=0
-plt.plot(dis[:, L1]+(l*30), label = 'L1')
-l+=1
-plt.plot(dis[:, L2]+(l*30), label = 'L2')
-l+=1
-plt.plot(dis[:, L3]+(l*30), label = 'L3')
-l+=1
-plt.plot(dis[:, R1]+(l*30), label = 'R1')
-l+=1
-plt.plot(dis[:, R2]+(l*30), label = 'R2')
-l+=1
-plt.plot(dis[:, R3]+(l*30), label = 'R3')
-plt.yticks([0, 30, 60, 90, 120, 150],["L1", 'L2', 'L3', 'R1', 'R2', 'R3'])
-
-#plt.legend(loc='right', bbox_to_anchor=(1.08,0.5),
-#          fancybox=True, shadow=True)
-#plt.legend(loc = 'upper center')
-plt.show()
-
-plt.close()
-
-
-l=0
-plt.plot(legAngles[:, (L1*3)+2], label = 'L1')
-l+=1
-plt.plot(legAngles[:, (L2*3)+2], label = 'L2')
-l+=1
-plt.plot(legAngles[:, (L3*3)+2], label = 'L3')
-l+=1
-plt.plot(legAngles[:, (R1*3)+2], label = 'R1')
-l+=1
-plt.plot(legAngles[:, (R2*3)+2], label = 'R2')
-l+=1
-plt.plot(legAngles[:, (R3*3)+2], label = 'R3')
-#plt.yticks([0, 30, 60, 90, 120, 150],["L1", 'L2', 'L3', 'R1', 'R2', 'R3'])
-plt.legend(loc = 'upper left', ncol=nLegs)
-plt.show()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
