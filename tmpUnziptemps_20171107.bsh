@@ -1,0 +1,11 @@
+d=`pwd`
+echo $d
+for i in ls ./*/
+do
+	cd "$i"
+	echo `pwd`
+	unzip temp_cropped.zip > ../123
+	mv temp_cropped/* ./
+	rm -r temp*
+	cd $d
+done
