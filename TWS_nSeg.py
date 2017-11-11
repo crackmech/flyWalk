@@ -19,14 +19,14 @@ def natural_sort(l):
     alphanum_key = lambda key: [ convert(c) for c in re.split('([0-9]+)', key) ] 
     return sorted(l, key = alphanum_key)
 
-srcDir = DirectoryChooser("Choose!").getDirectory()
-if srcDir:
-	baseDir = serDir
-else:
-	pass
+#srcDir = DirectoryChooser("Choose!").getDirectory()
+#if srcDir:
+#	baseDir = srcDir
+#else:
+#	pass
 baseDir = '/media/aman/data/flyWalk_data/LegPainting/test/'
 
-baseDir = 'D:\\flyWalk_data\\LegPainting\\test'
+#baseDir = 'D:\\flyWalk_data\\LegPainting\\test'
 
 
 inputDir = os.path.join(baseDir, "temp_cropped");
@@ -45,7 +45,7 @@ try:
 except:
     pass
 
-flist = natural_sort(os.listdir(inputDir))[:20]
+flist = natural_sort(os.listdir(inputDir))
 print len(flist);
 
 
@@ -67,9 +67,11 @@ for i in xrange(0, len(flist)-(len(flist)%nIm), nIm):
 	for j in xrange(nIm):
 		imStack.addSlice(str(i+j),images[i+j].getProcessor())
 	imp = ImagePlus('images',imStack)
+	imp.show()
 	if imp:
 		segIm = segs.applyClassifier(imp, 0, False)
 		segImStack = segIm.getStack()
+		segIm.show()
 		for k in xrange(nIm):
 			IJ.save(ImagePlus('a',segImStack.getProcessor(k+1)), os.path.join(outputDir,flist[i+k]));
 
