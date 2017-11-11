@@ -30,13 +30,17 @@ def natural_sort(l):
 imDir = "/home/aman/Downloads/opencv/CS_1_20170512_225019_tracked_8_6Classes/"
 rawDir = "/home/aman/Downloads/opencv/CS_1_20170512_225019_tracked_8/"
 
-
-
+baseDir = "D:\\flyWalk_data\\LegPainting\\unzip\\processed\\20170513_001948\\"
+rawDir = baseDir+"raw\\"
+imDir = baseDir+"classified\\"
 
 baseDir = '/media/aman/data/flyWalk_data/LegPainting/test/'
-rawDir = baseDir+"temp_cropped/";
-imDir = baseDir+"sc/";
+baseDir = '/media/aman/data/flyWalk_data/LegPainting/unzip/processed/20170513_001948/'
 
+rawDir = baseDir+"raw/";
+imDir = baseDir+"classified/";
+
+imlist = os.listdir(rawDir)
 
 csvName = rawDir.rstrip('/')+'.csv'
 
@@ -64,13 +68,13 @@ legTipcolor = [193, 121, 255]
 bgColor = [255, 118, 198]
 
 
-headColor = [153,153,153]
-tailColor = [204,204,204]
-bodyColor = [0, 0, 0]
-LegColor  = [51,51,51]
-legTipcolor = [255, 255, 255]
-bgColor = [102,102,102]
-
+##headColor = [153,153,153]
+##tailColor = [204,204,204]
+##bodyColor = [0, 0, 0]
+##LegColor  = [51,51,51]
+##legTipcolor = [255, 255, 255]
+##bgColor = [102,102,102]
+##
 
 
 params = cv2.SimpleBlobDetector_Params()
@@ -199,11 +203,19 @@ def getRaw(im):
     '''
     global img, ix, iy
     img = cv2.imread(rawDir+rawList[im])
+    imOrig = img.copy()
     cv2.putText(img,'H'+str(legAngles[im, 20]), (int(legAngles[im, 18]),int(legAngles[im, 19])), cv2.FONT_HERSHEY_COMPLEX, fontAngle, (0,0,255))
     cv2.putText(img,'T'+str(legAngles[im, 23]), (int(legAngles[im, 21]),int(legAngles[im, 22])), cv2.FONT_HERSHEY_COMPLEX, fontAngle, (0,0,255))
     for i in xrange(nLegs):
         cv2.circle(img,(int(legAngles[im, i*3]),int(legAngles[im, (i*3)+1])), 3, tuple(patches[i]), thickness=2)#draw a circle on the detected leg tip blobs        
         cv2.putText(img,legLabels[i]+str(legAngles[im, (i*3)+2]), (int(legAngles[im, i*3]),int(legAngles[im, (i*3)+1])), cv2.FONT_HERSHEY_COMPLEX, fontAngle, tuple(patches[i]))
+    
+    cv2.putText(imOrig,'H'+str(lA[im, 20]), (int(lA[im, 18]),int(lA[im, 19])), cv2.FONT_HERSHEY_COMPLEX, fontAngle, (0,0,255))
+    cv2.putText(imOrig,'T'+str(lA[im, 23]), (int(lA[im, 21]),int(lA[im, 22])), cv2.FONT_HERSHEY_COMPLEX, fontAngle, (0,0,255))
+    for i in xrange(nLegs):
+        cv2.circle(imOrig,(int(lA[im, i*3]),int(lA[im, (i*3)+1])), 3, tuple(patches[i]), thickness=2)#draw a circle on the detected leg tip blobs        
+        cv2.putText(imOrig,legLabels[i]+str(lA[im, (i*3)+2]), (int(lA[im, i*3]),int(lA[im, (i*3)+1])), cv2.FONT_HERSHEY_COMPLEX, fontAngle, tuple(patches[i]))
+    img = np.hstack((img, imOrig))
     ix = 0
     iy = 0
 
@@ -262,12 +274,13 @@ def neighbourUpdate(inArray):
             more sophisticated methods such as heuristics/machine learning could also applied
     '''
     errorIndex = (len(inArray)-1)/2
+    
     tempCoords = np.delete(inArray, (errorIndex), axis=0)
+    updatedArray = np.average(tempCoords[:errorIndex], axis=0)
+    return updatedArray
 
-    return np.average(tempCoords[0,:])
 
-
-def errorcorrect(lAngles, tolerance, maxDis, nLegs, updateWin):
+def errorcorrect_(lAngles, tolerance, maxDis, nLegs, updateWin):
     '''
     input:  
         lAngles:  numpy array containing all leg coordinates, their angles and
@@ -289,13 +302,45 @@ def errorcorrect(lAngles, tolerance, maxDis, nLegs, updateWin):
                 preX = lAngles[i-1, l*3]
                 preY = lAngles[i-1, (l*3)+1]
                 dis = np.sqrt(np.square(x-preX)+np.square(y-preY))
-                if dis>maxDis:    
-                    print i, l, dis, '========================================='
+                if dis>maxDis:
+                    print i, l, dis, x, y, preX, preY, '========================================='
+                    print lAngles[i-1:i+2,:]
                     lAngles[i,:] = neighbourUpdate(lAngles[i-updateWin:(i+updateWin)+1,:])
+                    print lAngles[i-1:i+2,:]
     return lAngles
             
-imDir = getFolder(imDir)
-rawDir = getFolder(rawDir)
+def errorcorrect(lAngles, tolerance, delAngle, nLegs, updateWin):
+    '''
+    input:  
+        lAngles:  numpy array containing all leg coordinates, their angles and
+                    other body segment coordinates and angle
+        tolerance:  the pixel diameter which is okay for jitter in legtip coordinates
+        delAngle:    list of STDEV of leg angles for each leg
+        nLegs:      total number of legtip data present in the lAngles file
+        updateWin:  the window of neighbouring cells from which the erroraneous value would be corrected 
+    output:
+        correctedLegAngles: numpy array containing corrected values for leg tips
+        errorList:          list of frames where the values were corrected
+        
+    '''
+    for i in xrange(updateWin, len(lAngles)-updateWin):
+        for l in xrange(nLegs):
+            angle = lAngles[i, (l*3)+2]
+            if (i>updateWin or i<(len(lAngles)-updateWin)):
+                preAngle = lAngles[i-1, (l*3)+2]
+                if preAngle>angle:
+                    diff = preAngle-angle
+                else:
+                    diff = angle-preAngle
+                if diff>delAngle[l]:
+                    print i, l, diff, preAngle, angle, '========================================='
+                    #print lAngles[i-1:i+2,:]
+                    lAngles[i,:] = neighbourUpdate(lAngles[i-updateWin:(i+updateWin)+1,:])
+                    #print lAngles[i-1:i+2,:]
+    return lAngles
+            
+##imDir = getFolder(imDir)
+##rawDir = getFolder(rawDir)
 
 imList = natural_sort(os.listdir(imDir))
 rawList = natural_sort(os.listdir(rawDir))
@@ -305,7 +350,8 @@ os.chdir(imDir)
 
 # parameters for automated error correction
 tolerance = 3
-maxDis = 20
+maxDis = 30
+delAngle = 40
 updateWin = 2
 
 
@@ -349,7 +395,7 @@ for im in xrange(len(imList)):
         print im, len(legBlobs), len(headBlobs), len(tailBlobs), len(bodyBlobs)
     angles = np.zeros((nLegs,3), dtype = 'float')
     for i in xrange(len(legBlobs)):
-        angles[i,:] = getLegtipAngle(legTipCoords = legBlobs[i, 1:3], headCoords= headBlobs[0], tailCoords = tailBlobs[0], bodyCoords = bodyBlobs[0])
+        angles[i,:] = getLegtipAngle(legTipCoords = legBlobs[i, 1:3], headCoords = headBlobs[0], tailCoords = tailBlobs[0], bodyCoords = bodyBlobs[0])
     angles = angles[angles[:,2].argsort()]#sort the legAngles according to the angle values
     
     for i in xrange(len(legBlobs)):
@@ -364,8 +410,9 @@ for im in xrange(len(imList)):
     legAngles[im, 24:26] = bodyBlobs[0][1:] # insert the original blob x-coordinate, y-coordinate
     legAngles[im, 26] = degrees(atan2(bodyBlobs[0][1]-imgCenter, bodyBlobs[0][2]-imgCenter)) # insert the original blob x-coordinate, y-coordinate
 
-
-#legAngles = errorcorrect(legAngles, tolerance, maxDis, nLegs, updateWin)
+delAngle = [np.std(legAngles[:,i*2]) for i in xrange(nLegs)]
+lA = legAngles.copy()
+legAngles = errorcorrect(legAngles, tolerance, delAngle, nLegs, updateWin)
 
 
 cv2.namedWindow('main1', cv2.WINDOW_GUI_EXPANDED)
@@ -457,11 +504,11 @@ for im in xrange(len(imList)):
         cv2.circle(blk,(int(legAngles[im, i*3]),int(legAngles[im, (i*3)+1,])), 2, tuple(patches[i]), thickness=1)#draw a circle on the detected leg tip blobs        
 
     cv2.imshow('123',np.hstack((img, image, blk)))
-    cv2.waitKey(30)
+    cv2.waitKey(3)
 
 cv2.destroyAllWindows()
 
-
+'''
 
 cv2.imshow('123',blk)
 cv2.waitKey()
@@ -498,6 +545,7 @@ plt.show()
 plt.close()
 
 
+
 l=0
 plt.plot(legAngles[:, (L1*3)+2], label = 'L1')
 l+=1
@@ -511,10 +559,35 @@ plt.plot(legAngles[:, (R2*3)+2], label = 'R2')
 l+=1
 plt.plot(legAngles[:, (R3*3)+2], label = 'R3')
 #plt.yticks([0, 30, 60, 90, 120, 150],["L1", 'L2', 'L3', 'R1', 'R2', 'R3'])
-plt.legend(loc = 'upper left', ncol=nLegs)
+plt.legend(loc = 'lower left', ncol=nLegs,bbox_to_anchor=(-0.05,-0.15),
+          fancybox=True, shadow=True).draggable()
 plt.show()
 
 
+
+plt.close()
+'''
+
+
+
+
+for i in xrange(len(imList)):
+    im = cv2.imread(imList[i])
+    image = im.copy()
+    img = im.copy()
+    bodyBlobs = getBlob(image, othersDilate, colors[2],1)[0]
+    headBlobs = getBlob(image, othersDilate, colors[0],1)[0]
+    tailBlobs = getBlob(image, othersDilate, colors[1],1)[0]
+    cv2.circle(img,(int(legAngles[i, 18]),int(legAngles[i, 19])), 5, (0,0,255), thickness=4)#draw a circle on the detected head blobs
+    cv2.circle(img,(int(legAngles[i, 21]),int(legAngles[i, 22])), 2, (100,255,0), thickness=2)#draw a circle on the detected tail blobs
+    cv2.circle(img,(int(legAngles[i, 24]),int(legAngles[i, 25])), 2, (100,255,0), thickness=2)#draw a circle on the detected body  blobs
+    cv2.circle(im,(int(bodyBlobs[0]),int(bodyBlobs[1])), 2, tuple(patches[2]), thickness=-1)#draw a circle on the detected leg tip blobs        
+    cv2.circle(im,(int(headBlobs[0]),int(headBlobs[1])), 2, tuple(patches[0]), thickness=-1)#draw a circle on the detected leg tip blobs        
+    cv2.circle(im,(int(tailBlobs[0]),int(tailBlobs[1])), 2, tuple(patches[1]), thickness=-1)#draw a circle on the detected leg tip blobs        
+    cv2.imshow('123',np.hstack((im, image, img)))
+    cv2.waitKey(100)
+
+cv2.destroyAllWindows()
 
 
 

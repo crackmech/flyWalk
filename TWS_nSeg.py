@@ -7,6 +7,7 @@ import trainableSegmentation as ts;
 import os;
 import re
 from datetime import datetime
+from ij.io import DirectoryChooser
 
 
 def present_time():
@@ -18,22 +19,23 @@ def natural_sort(l):
     alphanum_key = lambda key: [ convert(c) for c in re.split('([0-9]+)', key) ] 
     return sorted(l, key = alphanum_key)
 
-
-baseDir = '/home/vijay/amanaggarwal/flyWalk/WEKA/'
-
+srcDir = DirectoryChooser("Choose!").getDirectory()
+if srcDir:
+	baseDir = serDir
+else:
+	pass
 baseDir = '/media/aman/data/flyWalk_data/LegPainting/test/'
-inputDir = baseDir+"temp_cropped/";
-outputDir = baseDir+"sc/";
+
+baseDir = 'D:\\flyWalk_data\\LegPainting\\test'
 
 
-#baseDir = 'D:\\flyWalk_data\\LegPainting\\test\\'
-#inputDir = baseDir+"\\temp_cropped\\";
-#outputDir = baseDir+"sc\\";
+inputDir = os.path.join(baseDir, "temp_cropped");
+outputDir = os.path.join(baseDir, "sc");
 
-classifier = baseDir+"20170615_6Classes.model";
+classifier = os.path.join(baseDir,"20170615_6Classes.model")
 
 
-classifier = baseDir+"20170615_6Classes_updated20171106.model"
+classifier = os.path.join(baseDir,"20170615_6Classes_updated20171106.model")
 #classifier = baseDir+"testClassifier.model";
 
 nIm = 4 # number of images to be processed per batch
@@ -43,7 +45,7 @@ try:
 except:
     pass
 
-flist = natural_sort(os.listdir(inputDir));
+flist = natural_sort(os.listdir(inputDir))[:20]
 print len(flist);
 
 
@@ -54,7 +56,7 @@ print 'Loaded Classifier at:  '+present_time()
 
 images = []
 for i in xrange(len(flist)):
-	imp = IJ.openImage(inputDir+flist[i])
+	imp = IJ.openImage(os.path.join(inputDir, flist[i]))
 	if imp:
 		images.append(imp)
 
@@ -69,7 +71,7 @@ for i in xrange(0, len(flist)-(len(flist)%nIm), nIm):
 		segIm = segs.applyClassifier(imp, 0, False)
 		segImStack = segIm.getStack()
 		for k in xrange(nIm):
-			IJ.save(ImagePlus('a',segImStack.getProcessor(k+1)), outputDir+flist[i+k]);
+			IJ.save(ImagePlus('a',segImStack.getProcessor(k+1)), os.path.join(outputDir,flist[i+k]));
 
 		#IJ.save(segIm, outputDir+flist[i]);
 
