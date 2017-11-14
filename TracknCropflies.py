@@ -44,7 +44,8 @@ params.filterByConvexity = False
 params.filterByInertia = False
 params.minArea = 1000
 params.maxArea = 5000
-cropBox = 100
+hcropBox = 100
+vcropBox = 100
 
 
 def present_time():
@@ -179,7 +180,7 @@ def tracknCrop(dirname):
             kp = None
             try:
                 for kp in keypoints:
-                    pts = [int(kp.pt[1])-cropBox, int(kp.pt[1])+cropBox, int(kp.pt[0])-cropBox,int(kp.pt[0])+cropBox]
+                    pts = [int(kp.pt[1])-hcropBox, int(kp.pt[1])+hcropBox, int(kp.pt[0])-hcropBox,int(kp.pt[0])+hcropBox]
                     #im_cropped = im[pts[0]:pts[1], pts[2]:pts[3]]
                     
                     im_cropped = im[pts[0]:pts[1], pts[2]:pts[3]]
@@ -190,7 +191,7 @@ def tracknCrop(dirname):
 #                    cv2.imshow('imgMask', imcropped); cv2.waitKey(1)
                     trackData[:,f] = (kp.pt[0],kp.pt[1])
                     y=True
-                if im_cropped.size == cropBox*cropBox*4:
+                if im_cropped.shape >= (vcropBox*2):
                     cv2.imwrite(saveDir+flist[f], im)
 #                    imcropped = cv2.bitwise_not(im_cropped)
 #                    im_cropped = (imcropped-imcropped.min())*(255.0/(imcropped.max()-imcropped.min()))#fix the contrast

@@ -45,7 +45,7 @@ try:
 except:
     pass
 
-flist = natural_sort(os.listdir(inputDir))
+flist = natural_sort(os.listdir(inputDir))[:16]
 print len(flist);
 
 

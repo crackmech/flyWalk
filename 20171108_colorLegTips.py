@@ -40,6 +40,18 @@ baseDir = '/media/aman/data/flyWalk_data/LegPainting/unzip/processed/20170513_00
 rawDir = baseDir+"raw/";
 imDir = baseDir+"classified/";
 
+
+basedir = '/media/aman/data/flyWalk_data/LegPainting/unzip/200Frames/'
+baseDir = basedir+'20170513_001948_tracked_200'
+
+
+rawDir = baseDir+'/'
+imDir = baseDir+'_classified/'
+
+
+basedir = '/home/aman/bin/shasha/cm/temp_cropped'
+rawDir = basedir+'/'
+imDir = basedir+'_results/'
 #imDir = "/home/aman/Downloads/opencv/CS_1_20170512_225019_tracked_8_6Classes/"
 #rawDir = "/home/aman/Downloads/opencv/CS_1_20170512_225019_tracked_8/"
 
@@ -72,13 +84,13 @@ legTipcolor = [193, 121, 255]
 bgColor = [255, 118, 198]
 
 
-##headColor = [153,153,153]
-##tailColor = [204,204,204]
-##bodyColor = [0, 0, 0]
-##LegColor  = [51,51,51]
-##legTipcolor = [255, 255, 255]
-##bgColor = [102,102,102]
-##
+headColor = [153,153,153]
+tailColor = [204,204,204]
+bodyColor = [0, 0, 0]
+LegColor  = [51,51,51]
+legTipcolor = [255, 255, 255]
+bgColor = [102,102,102]
+#
 
 
 params = cv2.SimpleBlobDetector_Params()
@@ -98,7 +110,7 @@ nClasses = 6
 nLegs = 6
 
 legDilate = 2
-othersDilate = 5
+othersDilate = 3
 colors = [
             headColor,
             tailColor,
@@ -205,12 +217,19 @@ def getRaw(im):
     '''
     global img, ix, iy
     img = cv2.imread(rawDir+rawList[im])
+    labeled = cv2.imread(imDir+imList[im])
+    img = np.pad(img, ((padding,padding),(padding,padding),(0,0)), mode='reflect')
     cv2.circle(img,(int(legAngles[im, headCol]),int(legAngles[im, headCol+1])), 5, (0,0,255), thickness=4)#draw a circle on the detected head blobs
     cv2.circle(img,(int(legAngles[im, tailCol]),int(legAngles[im, tailCol+1])), 2, (100,255,0), thickness=2)#draw a circle on the detected tail blobs
     cv2.circle(img,(int(legAngles[im, bodyCol]),int(legAngles[im, bodyCol+1])), 2, (100,255,0), thickness=2)#draw a circle on the detected body  blobs
     imOrig = img.copy()
     for i in xrange(nLegs):
         cv2.circle(img,(int(legAngles[im, i*nParams]),int(legAngles[im, (i*nParams)+1])), 3, tuple(patches[i]), thickness=2)#draw a circle on the detected leg tip blobs        
+    cv2.circle(labeled,(int(legAngles[im, headCol]),int(legAngles[im, headCol+1])), 5, (0,0,255), thickness=4)#draw a circle on the detected head blobs
+    cv2.circle(labeled,(int(legAngles[im, tailCol]),int(legAngles[im, tailCol+1])), 2, (100,255,0), thickness=2)#draw a circle on the detected tail blobs
+    cv2.circle(labeled,(int(legAngles[im, bodyCol]),int(legAngles[im, bodyCol+1])), 2, (100,255,0), thickness=2)#draw a circle on the detected body  blobs
+    for i in xrange(nLegs):
+        cv2.circle(labeled,(int(legAngles[im, i*nParams]),int(legAngles[im, (i*nParams)+1])), 3, tuple(patches[i]), thickness=2)#draw a circle on the detected leg tip blobs        
         #cv2.putText(img,legLabels[i]+str(legAngles[im, i*(nParams+1)-1]), (int(legAngles[im, i*nParams]),int(legAngles[im, (i*nParams)+1])), cv2.FONT_HERSHEY_COMPLEX, fontAngle, tuple(patches[i]))
     #cv2.putText(img,'H'+str(legAngles[im, headCol+nParams-1]), (int(legAngles[im, headCol]),int(legAngles[im, headCol+1])), cv2.FONT_HERSHEY_COMPLEX, 0.5, tuple(patches[i]))
     #cv2.putText(img,'T'+str(legAngles[im, tailCol+nParams-1]), (int(legAngles[im, tailCol]),int(legAngles[im, tailCol+1])), cv2.FONT_HERSHEY_COMPLEX, 0.5, tuple(patches[i]))
@@ -222,8 +241,7 @@ def getRaw(im):
         #cv2.putText(imOrig,legLabels[i]+str(lA[im, i*(nParams+1)-1]), (int(lA[im, i*nParams]),int(lA[im, (i*nParams)+1])), cv2.FONT_HERSHEY_COMPLEX, fontAngle, tuple(patches[i]))
     #cv2.putText(imOrig,'H'+str(lA[im, headCol+nParams-1]), (int(lA[im, headCol]),int(lA[im, headCol+1])), cv2.FONT_HERSHEY_COMPLEX, 0.5, tuple(patches[i]))
     #cv2.putText(imOrig,'T'+str(lA[im, tailCol+nParams-1]), (int(lA[im, tailCol]),int(lA[im, tailCol+1])), cv2.FONT_HERSHEY_COMPLEX, 0.5, tuple(patches[i]))
-
-    img = np.hstack((img, imOrig))
+    img = np.hstack((img, imOrig, labeled))
     ix = 0
     iy = 0
     return img
@@ -394,8 +412,9 @@ def legTipCorrect(legData, nLegs, nParams, tolerance):
 imList = natural_sort(os.listdir(imDir))
 rawList = natural_sort(os.listdir(rawDir))
 os.chdir(imDir)
-
-
+img = cv2.imread(rawDir+rawList[0])
+labeled = cv2.imread(imDir+imList[0])
+padding = (labeled.shape[0]-img.shape[0])/2
 
 # parameters for automated error correction
 tolerance = 1
@@ -471,7 +490,7 @@ for im in xrange(len(imList)):
 delAngle = [np.std(legAngles[:,i*2]) for i in xrange(nLegs)]
 lA = legAngles.copy()
 #legAngles = errorcorrect(legAngles, tolerance, delAngle, nLegs, updateWin)
-legAngles = legTipCorrect(legAngles, nLegs, nParams, tolerance)
+#legAngles = legTipCorrect(legAngles, nLegs, nParams, tolerance)
 
 cv2.namedWindow('main1', cv2.WINDOW_GUI_EXPANDED)
 #cv2.namedWindow('main2', cv2.WINDOW_AUTOSIZE)
@@ -542,14 +561,16 @@ while(1):
         print leg
     elif k == 83: #right arrow pressed for next image
         print k
-        im+=1
-        getRaw(im)
-        cv2.setTrackbarPos('trackbar1','main1', im)
+        if im<(len(imList)-1):
+            im+=1
+            getRaw(im)
+            cv2.setTrackbarPos('trackbar1','main1', im)
     elif k == 81:  #left arrow pressed for previous image
         print k
-        im-=1
-        getRaw(im)
-        cv2.setTrackbarPos('trackbar1','main1', im)
+        if im>0:
+            im-=1
+            getRaw(im)
+            cv2.setTrackbarPos('trackbar1','main1', im)
 #    else:
 #        print k
     cv2.waitKey(1)
@@ -654,7 +675,7 @@ leg = 0
 
 def showLeg(leg, legData):
     lData = legData[:, leg*nParams:(leg+1)*nParams]
-    blk = np.ones(image.shape, dtype='uint8')*bgValue#create an empty iamge with gray background 
+    blk = np.ones((image.shape[0]+padding, image.shape[1]+padding, image.shape[2]), dtype='uint8')*bgValue#create an empty iamge with gray background 
     for im in xrange(len(imList)):
         cv2.circle(blk,(int(lData[im, 0]),int(lData[im, 1])), 2, tuple(patches[1]), thickness=-1)#draw a circle on the detected leg tip blobs        
         cv2.imshow('123',blk)
